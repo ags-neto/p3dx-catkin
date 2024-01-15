@@ -1,0 +1,17 @@
+MAPPING:
+source devel/setup.bash && roslaunch p3dx_slam p3dx_slam.launch
+source devel/setup.bash && roslaunch robot robot.launch
+rosrun map_server map_saver -f ~/arena
+
+
+WAYPOINTS:
+source devel/setup.bash && roslaunch p3dx_navigation p3dx_navigation.launch map_file:=$HOME/arena.yaml
+source devel/setup.bash && roslaunch robot robot.launch
+source devel/setup.bash && rosrun waypoints waypoints_server
+
+
+OBJECT DETECTION:
+# ASTRA RIGT PORT | HOKUYO + SILVER LEFT PORT
+# password: <password — ver cofre/notas internas>
+source devel/setup.bash && ROS_MASTER_URI=http://10.8.0.18:11311 && roslaunch darknet_ros darknet_ros.launch
+source devel/setup.bash && roslaunch object_detection object_detection
