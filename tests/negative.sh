@@ -5,7 +5,8 @@
 # Each case copies the working tree into a temporary directory, breaks exactly
 # one thing THERE, and asserts that tests/run.sh then fails with the expected
 # check id. Nothing in the real repository is modified: every mutation happens
-# in the throwaway copy.
+# in the throwaway copy (one of them even commits there, to turn src/waypoints
+# back into a gitlink).
 #
 # Usage: tests/negative.sh
 # Exit status: 0 = every case behaved as expected.
@@ -52,6 +53,41 @@ mut_add_orphan_entry() {
 
 # a declared package that lost a required file
 mut_break_package() { mv src/robot/CMakeLists.txt src/robot/CMakeLists.txt.hidden; }
+
+# --- the waypoints package (the declared reconstruction) -------------------
+
+# the node that guide.txt runs is gone
+mut_drop_waypoints_node() { rm -f src/waypoints/scripts/waypoints_server; }
+
+# the package lost its package.xml
+mut_drop_waypoints_package_xml() { mv src/waypoints/package.xml src/waypoints/package.xml.hidden; }
+
+# the node is not executable any more, so rosrun would not run it
+mut_waypoints_node_not_executable() { chmod -x src/waypoints/scripts/waypoints_server; }
+
+# the node no longer initialises itself under the name guide.txt runs
+mut_waypoints_node_renamed() {
+	sed -i "s/init_node('waypoints_server')/init_node('something_else')/" \
+		src/waypoints/scripts/waypoints_server
+}
+
+# the node stops being valid Python
+mut_waypoints_syntax_error() {
+	printf '\ndef broken(:\n' >> src/waypoints/scripts/waypoints_server
+}
+
+# the reconstruction stops declaring itself
+mut_waypoints_no_declaration() { rm -f src/waypoints/README.md; }
+
+# the fix is undone: src/waypoints goes back to being a gitlink with no content
+mut_waypoints_back_to_gitlink() {
+	rm -rf src/waypoints
+	git rm -r --cached --quiet src/waypoints >/dev/null 2>&1
+	git update-index --add --cacheinfo \
+		160000,115553cfa8c2ace122414ac5a9b235cd2e225693,src/waypoints
+	git -c user.name=negative -c user.email=negative@invalid commit \
+		--quiet -m "back to a gitlink" >/dev/null 2>&1
+}
 
 # --- runner ---------------------------------------------------------------
 
@@ -100,6 +136,13 @@ case_expect mut_drop_rosaria_entry gitlink-undeclared
 case_expect mut_hide_gitmodules gitmodules-missing
 case_expect mut_add_orphan_entry gitmodules-orphan
 case_expect mut_break_package cmakelists-missing
+case_expect mut_drop_waypoints_node waypoints-node-present
+case_expect mut_drop_waypoints_package_xml waypoints-package-xml
+case_expect mut_waypoints_node_not_executable waypoints-node-executable
+case_expect mut_waypoints_node_renamed waypoints-node-name
+case_expect mut_waypoints_syntax_error waypoints-python-syntax
+case_expect mut_waypoints_no_declaration waypoints-declared
+case_expect mut_waypoints_back_to_gitlink waypoints-still-gitlink
 
 echo
 if [ "$fails" -eq 0 ]; then

@@ -18,9 +18,11 @@
 #
 # Exit status: 0 = every check passed; non-zero = at least one check failed.
 
-# Note: src/waypoints is a gitlink with no .gitmodules mapping (see
-# tests/known-gaps.txt), and that makes the UNTARGETED `git submodule
-# update --init` abort. Initialise the declared submodule by path, as above.
+# Note: src/rosaria is a submodule declared in .gitmodules, but the UNTARGETED
+# `git submodule update --init` is still not used here: initialise the declared
+# submodule by path, as above. (The historical src/waypoints gitlink - the one
+# that used to make the untargeted command abort - is gone: it is now in-tree
+# content written as a DECLARED RECONSTRUCTION. See section 8.)
 #
 set -uo pipefail
 
@@ -257,6 +259,167 @@ for p in $known; do
 		fail "gap-undocumented" "$p is a known gap but README.md does not mention it"
 	fi
 done
+echo
+
+# --- 8. the waypoints package: a DECLARED RECONSTRUCTION -------------------
+# src/waypoints used to be a gitlink (index mode 160000) pointing at commit
+# 115553cfa8c2ace122414ac5a9b235cd2e225693, and that code does not exist in any
+# known remote - the ORIGINAL is lost for good. It is now plain in-tree content,
+# written from the clues that survived this repository and declared as a
+# reconstruction (src/waypoints/README.md).
+#
+# What these checks prove: the package is complete, the node it ships is the one
+# guide.txt runs, it is executable, and its Python parses. What they CANNOT
+# prove: that it runs, that a workspace builds (there is no ROS here), or that
+# the interface is the original one - the topics are inferred, not recovered.
+wp=src/waypoints
+
+# 8a. the gitlink is gone: the path must be in-tree content now
+wpmode=$(git ls-tree HEAD src/waypoints 2>/dev/null | awk '{print $1}' | head -1)
+if [ "$wpmode" = "160000" ]; then
+	fail "waypoints-still-gitlink" "$wp is still a gitlink (mode 160000): its code lives elsewhere and a clean clone brings an empty directory"
+elif [ -n "$wpmode" ]; then
+	pass "waypoints-in-tree" "$wp is tracked as in-tree content (mode $wpmode), not as a gitlink"
+else
+	fail "waypoints-in-tree" "$wp is not tracked in the index at all"
+fi
+
+# 8b. the node name is read FROM guide.txt, never hard-coded in this suite
+wpnode=$(sed -n 's/.*rosrun[[:space:]][[:space:]]*waypoints[[:space:]][[:space:]]*\([^[:space:]]\{1,\}\).*/\1/p' guide.txt 2>/dev/null | head -1 | tr -d '\r')
+if [ -z "$wpnode" ]; then
+	fail "waypoints-guide-node" "guide.txt no longer shows 'rosrun waypoints <node>'; this suite lost its anchor"
+else
+	pass "waypoints-guide-node" "guide.txt runs 'rosrun waypoints $wpnode'"
+fi
+
+# 8c. package.xml + CMakeLists.txt (section 1 covers tracked packages in
+# general; this repeats it for waypoints so the reconstruction is checked even
+# if that general check is ever loosened)
+if [ -f "$wp/package.xml" ]; then
+	wpname=$(sed -n 's:.*<name>[[:space:]]*\([^<]*\)</name>.*:\1:p' "$wp/package.xml" | head -1 | tr -d ' \t\r')
+	if [ "$wpname" = "waypoints" ]; then
+		pass "waypoints-package-xml" "$wp/package.xml declares <name>waypoints</name>"
+	else
+		fail "waypoints-package-xml" "$wp/package.xml declares <name>${wpname:-<nothing>}</name>, expected 'waypoints' (the name in guide.txt)"
+	fi
+else
+	fail "waypoints-package-xml" "$wp has no package.xml"
+fi
+if [ -f "$wp/CMakeLists.txt" ]; then
+	pass "waypoints-cmakelists" "$wp/CMakeLists.txt exists"
+else
+	fail "waypoints-cmakelists" "$wp has no CMakeLists.txt"
+fi
+
+# 8d. the executable guide.txt names, executable and self-consistent
+wpnode_path=""
+if [ -n "$wpnode" ]; then
+	for cand in "$wp/scripts/$wpnode" "$wp/bin/$wpnode" "$wp/$wpnode"; do
+		if [ -f "$cand" ]; then wpnode_path="$cand"; break; fi
+	done
+fi
+pyfiles=""
+if [ -n "$wpnode_path" ]; then
+	pass "waypoints-node-present" "the node guide.txt runs is at $wpnode_path"
+	nodemode=$(git ls-files -s -- "$wpnode_path" | awk '{print $1}' | head -1)
+	if [ "$nodemode" = "100755" ] && [ -x "$wpnode_path" ]; then
+		pass "waypoints-node-executable" "$wpnode_path is executable (index mode 100755 and +x on disk), so rosrun can find it"
+	else
+		fail "waypoints-node-executable" "$wpnode_path has index mode ${nodemode:-<untracked>} and is$( [ -x "$wpnode_path" ] || printf ' not') +x; rosrun needs an executable"
+	fi
+	if head -1 -- "$wpnode_path" 2>/dev/null | grep -q '^#!.*python'; then
+		pyfiles="$pyfiles $wpnode_path"
+		if grep -q "init_node(['\"]$wpnode['\"]" "$wpnode_path"; then
+			pass "waypoints-node-name" "$wpnode_path initialises the node as '$wpnode', the name guide.txt runs"
+		else
+			fail "waypoints-node-name" "$wpnode_path does not call init_node('$wpnode')"
+		fi
+	elif grep -q "ros::init([^;]*[\"']$wpnode[\"']" "$wpnode_path" 2>/dev/null; then
+		pass "waypoints-node-name" "$wpnode_path initialises the node as '$wpnode', the name guide.txt runs"
+	else
+		fail "waypoints-node-name" "$wpnode_path initialises no node named '$wpnode' (neither init_node nor ros::init)"
+	fi
+else
+	fail "waypoints-node-present" "no executable named '${wpnode:-<unknown>}' under $wp (scripts/, bin/ or the package root)"
+fi
+
+# 8e. every Python file in the package parses (python3 -m py_compile, with the
+# .pyc thrown away in a temp dir so the tree stays clean), or - if the package
+# is C++ - it has the obvious ROS structure. Neither proves it BUILDS.
+while IFS= read -r f; do
+	[ -f "$f" ] || continue
+	case "$f" in
+		*.py) pyfiles="$pyfiles $f" ;;
+	esac
+done < <(git ls-files -- "$wp")
+pyfiles=$(printf '%s\n' $pyfiles | sort -u | tr '\n' ' ')
+if [ -n "${pyfiles// /}" ]; then
+	if command -v python3 >/dev/null 2>&1; then
+		pycdir=$(mktemp -d)
+		badpy=""
+		for f in $pyfiles; do
+			if ! python3 -c 'import py_compile, sys; py_compile.compile(sys.argv[1], cfile=sys.argv[2], doraise=True)' \
+					"$f" "$pycdir/out.pyc" >/dev/null 2>&1; then
+				badpy="$badpy $f"
+			fi
+		done
+		rm -rf "$pycdir"
+		if [ -z "$badpy" ]; then
+			pass "waypoints-python-syntax" "python3 -m py_compile accepts:$pyfiles"
+		else
+			fail "waypoints-python-syntax" "python3 -m py_compile rejects:$badpy"
+		fi
+	else
+		note "waypoints-python-syntax" "python3 is not available, syntax check skipped"
+	fi
+else
+	cppfiles=$(git ls-files -- "$wp" | grep -E '\.(cpp|cc|cxx)$' | tr '\n' ' ')
+	if [ -n "${cppfiles// /}" ]; then
+		badcpp=""
+		for f in $cppfiles; do
+			if ! grep -q '#include *<ros/ros.h>' "$f" || ! grep -q 'int *main' "$f"; then
+				badcpp="$badcpp $f"
+			fi
+		done
+		if [ -z "$badcpp" ]; then
+			pass "waypoints-cpp-structure" "every C++ source includes <ros/ros.h> and defines main():$cppfiles"
+		else
+			fail "waypoints-cpp-structure" "C++ source without the obvious ROS structure:$badcpp"
+		fi
+	else
+		fail "waypoints-node-source" "$wp has no Python file and no C++ source"
+	fi
+fi
+
+# 8f. the reconstruction must declare itself and name the sha it replaces
+if [ -f "$wp/README.md" ]; then
+	if grep -qi 'reconstruct' "$wp/README.md"; then
+		pass "waypoints-declared" "$wp/README.md calls the package a reconstruction"
+	else
+		fail "waypoints-declared" "$wp/README.md does not call the package a reconstruction"
+	fi
+	sha=115553cfa8c2ace122414ac5a9b235cd2e225693
+	if grep -q "$sha" "$wp/README.md" && grep -q "$sha" "$wp/package.xml"; then
+		pass "waypoints-declares-lost-sha" "the lost gitlink commit $sha is named in $wp/README.md and $wp/package.xml"
+	else
+		fail "waypoints-declares-lost-sha" "the lost gitlink commit $sha is not named in both $wp/README.md and $wp/package.xml"
+	fi
+else
+	fail "waypoints-declared" "$wp has no README.md declaring the package a reconstruction"
+fi
+if grep -q 'src/waypoints/README.md' README.md 2>/dev/null; then
+	pass "waypoints-repo-readme" "the repository README points at src/waypoints/README.md"
+else
+	fail "waypoints-repo-readme" "the repository README does not point at src/waypoints/README.md"
+fi
+
+# 8g. and git itself must no longer complain about a gitlink with no mapping:
+# this is the check that the empty-directory-in-a-clean-clone problem is gone
+if git submodule status >/dev/null 2>&1; then
+	pass "submodule-status-clean" "'git submodule status' succeeds: no gitlink in the index lacks a .gitmodules mapping"
+else
+	fail "submodule-status-clean" "'git submodule status' still fails: $(git submodule status 2>&1 | tr '\n' ' ' | tr -s ' ')"
+fi
 echo
 
 if [ "$failed" -eq 0 ]; then

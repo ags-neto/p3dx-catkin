@@ -1,5 +1,11 @@
 # Gitlinks (index mode 160000) that are KNOWN to have no `.gitmodules` entry.
 #
+# THERE ARE NONE ANY MORE. Every gitlink left in the index (`src/rosaria`) is
+# declared in `.gitmodules`, and the historical `src/waypoints` gitlink was
+# replaced by in-tree content written as a DECLARED RECONSTRUCTION (see
+# `src/waypoints/README.md`). tests/run.sh fails if a gitlink turns up that is
+# not declared, so an unmapped one cannot come back unnoticed.
+#
 # One path per line, relative to the repository root. Blank lines and lines
 # starting with '#' are ignored.
 #
@@ -7,8 +13,19 @@
 # regression), and only prints a NOTE if a path listed here is no longer a gap
 # (meaning this baseline is stale and should be pruned).
 #
-# src/waypoints - the package is a gitlink in this repository's history, but its
-# origin could not be identified anywhere (not in Gitea, not in the author's
-# GitHub account, not on the machine, not on the web). No `.gitmodules` entry
-# could be written without inventing a URL. See README.md.
-src/waypoints
+# What is genuinely missing now is NOT the waypoints code (that was
+# reconstructed) but the ORIGINAL, plus a documentation-conformance gap:
+#
+#  * The original `waypoints` package. The gitlink commit
+#    115553cfa8c2ace122414ac5a9b235cd2e225693 exists in no known remote (not in
+#    Gitea, not in the author's GitHub account, not on the machine, not on the
+#    web) and the author no longer has it, so the original work is still lost -
+#    and with it the rviz plugins that p3dx_navigation.rviz expects
+#    (`waypoints/waypointPanel`, `waypoints/Waypoints`), which the declared
+#    reconstruction in `src/waypoints/` does not reproduce.
+#
+#  * `darknet_ros`, which the OBJECT DETECTION part of guide.txt runs
+#    (`roslaunch darknet_ros darknet_ros.launch`) and which is not under `src/`:
+#    a documentation-conformance gap, not a gitlink.
+#
+# Both are recorded in README.md and are not fixed here.

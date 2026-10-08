@@ -1,0 +1,38 @@
+<?xml version="1.0"?>
+<package format="2">
+  <!--
+    DECLARED RECONSTRUCTION - this is NOT the original `waypoints` package.
+
+    The original was recorded in p3dx-catkin as a gitlink (index mode 160000)
+    pointing at commit 115553cfa8c2ace122414ac5a9b235cd2e225693, and that code
+    does not exist in any remote that could be found. What is in this directory
+    was written from the clues that survived in the repository. Read README.md
+    here before relying on the interface: only the package name and the node
+    name are documented; the rest is inferred.
+  -->
+  <name>waypoints</name>
+  <version>0.0.1</version>
+  <description>
+    Simple waypoint list server for the P3DX (Pioneer 3-DX) workspace: it keeps a
+    list of 2-D waypoints and publishes it as a geometry_msgs/PoseArray.
+
+    THIS PACKAGE IS A RECONSTRUCTION, NOT THE ORIGINAL WORK. The original
+    `waypoints` package was lost (the gitlink pointed at commit
+    115553cfa8c2ace122414ac5a9b235cd2e225693, which is not in any known remote).
+    See README.md in this package for what is known, what is inferred and what
+    is still missing.
+  </description>
+
+  <!-- Taken from this repository's git history; correct it if it is wrong. -->
+  <maintainer email="mail.me@ags-neto.com">Andre Neto</maintainer>
+  <license>GPLv3</license>
+  <author email="mail.me@ags-neto.com">Andre Neto</author>
+
+  <!-- Only what scripts/waypoints_server actually imports. -->
+  <buildtool_depend>catkin</buildtool_depend>
+  <exec_depend>rospy</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+
+  <export>
+  </export>
+</package>

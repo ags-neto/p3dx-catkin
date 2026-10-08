@@ -1,0 +1,133 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# waypoints_server - keep a list of 2-D waypoints and publish it as a PoseArray.
+#
+# Copyright (C) 2024 Andre Neto
+# SPDX-License-Identifier: GPL-3.0-only
+#
+# Part of the p3dx-catkin workspace, licensed GPL-3.0; see ../../LICENSE.
+#
+# RECONSTRUCTION, NOT THE ORIGINAL. The original `waypoints` package was lost
+# (gitlink commit 115553cfa8c2ace122414ac5a9b235cd2e225693, absent from every
+# known remote). Only the node name below is documented - guide.txt runs
+# `rosrun waypoints waypoints_server`. Every topic name, message type and
+# parameter is inferred. Read README.md next to this file before depending on
+# the interface.
+
+"""waypoints_server: append incoming poses to a list and publish the list.
+
+Interface (inferred except the node name; see README.md):
+
+    subscribes  ~input_topic   (default "waypoint")   geometry_msgs/PoseStamped
+    publishes   ~output_topic  (default "waypoints")  geometry_msgs/PoseArray (latched)
+
+Parameters:
+
+    ~frame_id       frame of the published PoseArray (default "map")
+    ~input_topic    topic carrying one geometry_msgs/PoseStamped per waypoint
+    ~output_topic   topic carrying the whole list as geometry_msgs/PoseArray
+    ~publish_rate   how often, in Hz, the list is re-published (default 1.0;
+                    <= 0 publishes only when a waypoint arrives)
+    ~waypoints      optional seed list, e.g. [[1.0, 0.0], [2.0, 1.0, 1.57]]
+
+The published list is latched, so a subscriber that starts later still gets it.
+Nothing is published while the list is empty. Incoming frames are NOT
+transformed: a pose is taken as it arrives (a warning is logged once if its
+frame differs from ~frame_id).
+"""
+
+import math
+
+import rospy
+from geometry_msgs.msg import Pose, PoseArray, PoseStamped
+
+
+def _quaternion_to_yaw(quaternion):
+    """Yaw (radians) of a quaternion, ignoring roll and pitch."""
+    siny_cosp = 2.0 * (quaternion.w * quaternion.z + quaternion.x * quaternion.y)
+    cosy_cosp = 1.0 - 2.0 * (quaternion.y * quaternion.y + quaternion.z * quaternion.z)
+    return math.atan2(siny_cosp, cosy_cosp)
+
+
+def _yaw_to_quaternion(yaw):
+    """Quaternion (x, y, z, w) for a pure yaw rotation."""
+    return 0.0, 0.0, math.sin(yaw / 2.0), math.cos(yaw / 2.0)
+
+
+class WaypointsServer(object):
+
+    def __init__(self):
+        self.frame_id = rospy.get_param('~frame_id', 'map')
+        input_topic = rospy.get_param('~input_topic', 'waypoint')
+        output_topic = rospy.get_param('~output_topic', 'waypoints')
+        rate = float(rospy.get_param('~publish_rate', 1.0))
+        self.waypoints = []          # list of (x, y, yaw)
+        self.warned_about_frame = False
+
+        for item in rospy.get_param('~waypoints', []):
+            waypoint = self._parse_waypoint(item)
+            if waypoint is not None:
+                self.waypoints.append(waypoint)
+
+        self.publisher = rospy.Publisher(output_topic, PoseArray, queue_size=1, latch=True)
+        self.subscriber = rospy.Subscriber(input_topic, PoseStamped,
+                                           self._on_waypoint, queue_size=10)
+        rospy.loginfo('waypoints_server (RECONSTRUCTION, not the original package): '
+                      '%d seed waypoint(s); %s -> %s, frame "%s"',
+                      len(self.waypoints), input_topic, output_topic, self.frame_id)
+
+        self.timer = None
+        if rate > 0.0:
+            self.timer = rospy.Timer(rospy.Duration(1.0 / rate), self._publish)
+
+    @staticmethod
+    def _parse_waypoint(item):
+        """Accept [x, y], [x, y, theta], {'x':, 'y':, 'theta':} - else None."""
+        try:
+            if isinstance(item, dict):
+                return (float(item['x']), float(item['y']), float(item.get('theta', 0.0)))
+            return (float(item[0]), float(item[1]),
+                    float(item[2]) if len(item) > 2 else 0.0)
+        except (TypeError, IndexError, KeyError, ValueError) as exc:
+            rospy.logwarn('waypoints_server: ignoring malformed waypoint %s (%s)', item, exc)
+            return None
+
+    def _on_waypoint(self, message):
+        position = message.pose.position
+        frame = message.header.frame_id
+        if frame and frame != self.frame_id and not self.warned_about_frame:
+            rospy.logwarn('waypoints_server: waypoint arrives in frame "%s" but this node '
+                          'publishes in "%s" and does NOT transform frames', frame, self.frame_id)
+            self.warned_about_frame = True
+        self.waypoints.append((position.x, position.y,
+                               _quaternion_to_yaw(message.pose.orientation)))
+        rospy.loginfo('waypoints_server: waypoint %d added (%.3f, %.3f)',
+                      len(self.waypoints), position.x, position.y)
+        self._publish(None)
+
+    def _publish(self, _event):
+        if not self.waypoints:
+            return
+        array = PoseArray()
+        array.header.stamp = rospy.Time.now()
+        array.header.frame_id = self.frame_id
+        for x, y, yaw in self.waypoints:
+            pose = Pose()
+            pose.position.x = x
+            pose.position.y = y
+            pose.position.z = 0.0
+            (pose.orientation.x, pose.orientation.y,
+             pose.orientation.z, pose.orientation.w) = _yaw_to_quaternion(yaw)
+            array.poses.append(pose)
+        self.publisher.publish(array)
+
+
+def main():
+    rospy.init_node('waypoints_server')
+    WaypointsServer()
+    rospy.spin()
+
+
+if __name__ == '__main__':
+    main()
