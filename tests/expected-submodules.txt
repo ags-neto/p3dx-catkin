@@ -1,0 +1,9 @@
+# Submodules whose origin has been identified and verified.
+#
+# One entry per line: "<path> <url>". Tests/run.sh checks that .gitmodules
+# declares exactly these URLs, so a wrong or edited URL is caught even without
+# network access. Reachability is not checked here (tests/run.sh stays offline).
+#
+# src/rosaria -> verified: commit 204dc0c6785abb4037c1c5ee76439cf5f50cb880
+#                exists on that repository's master branch.
+src/rosaria https://github.com/amor-ros-pkg/rosaria.git

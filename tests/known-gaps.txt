@@ -1,0 +1,14 @@
+# Gitlinks (index mode 160000) that are KNOWN to have no `.gitmodules` entry.
+#
+# One path per line, relative to the repository root. Blank lines and lines
+# starting with '#' are ignored.
+#
+# tests/run.sh FAILS if a gitlink shows up that is not listed here (a
+# regression), and only prints a NOTE if a path listed here is no longer a gap
+# (meaning this baseline is stale and should be pruned).
+#
+# src/waypoints - the package is a gitlink in this repository's history, but its
+# origin could not be identified anywhere (not in Gitea, not in the author's
+# GitHub account, not on the machine, not on the web). No `.gitmodules` entry
+# could be written without inventing a URL. See README.md.
+src/waypoints

@@ -1,0 +1,13 @@
+# Submodules of this catkin workspace.
+#
+# src/rosaria is pinned to the upstream commit recorded in this repository's
+# history; tests/run.sh verifies that it resolves and that the checkout matches
+# the pin.
+#
+# src/waypoints is ALSO a gitlink (index mode 160000) in this repository's
+# history, but its origin could not be identified, so it deliberately has NO
+# entry here: inventing a URL would be worse than the honest gap. See README.md,
+# "The waypoints package is missing" and tests/known-gaps.txt.
+[submodule "src/rosaria"]
+	path = src/rosaria
+	url = https://github.com/amor-ros-pkg/rosaria.git
