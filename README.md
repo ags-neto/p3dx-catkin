@@ -15,7 +15,8 @@ vendored under `src/` keep their own licences:
 | `ros_astra_camera` | Apache-2.0 |
 | `urg_node`, `urg_c`, `laser_proc`, `rgbd_launch` | BSD |
 | `object_detection`, `p3dx_navigation`, `p3dx_slam` | not declared (`TODO` in `package.xml`) |
-| `rosaria`, `waypoints` | gitlinks with no content, no licence file to read |
+| `rosaria` | **GPL-2.0-only** (declared in the upstream `package.xml`; the upstream repository has no licence file) |
+| `waypoints` | no content in any known remote — see above |
 
 MIT is not possible here: the GPL-3.0 package `p3dx_description` and the LGPL-3.0
 `robot`/`estop` impose their own obligations on the combined work.
@@ -137,3 +138,10 @@ thing at a time in a throwaway copy.
 
 They do **not** prove that the workspace builds — no ROS was available where they were
 written, so `catkin_make` was never run.
+
+**On `rosaria`:** its upstream (`amor-ros-pkg/rosaria`) declares `GPLv2` with no "or later"
+clause, which is **incompatible with the GPL-3.0 of this repository** for a combined work. It is
+kept as a separate package (a collection, not a derivative), so each package keeps its own
+licence — but if a single licence for the whole set is ever wanted, `rosaria` would have to be
+replaced by a GPLv3-compatible alternative. This is recorded, not resolved: the licence table was
+left otherwise untouched.
