@@ -49,12 +49,12 @@ directories. A gitlink stores only a commit id — the code itself lives in anot
 repository. For a clone to bring that code, each gitlink needs a matching entry in
 `.gitmodules`; without one, `git clone` simply creates an **empty directory**.
 
-Only `src/rosaria` is still a gitlink today. `src/waypoints` was replaced by in-tree
+Only `src/rosaria` is still a gitlink today; `src/waypoints` was replaced by in-tree
 content written as a **declared reconstruction** of the lost original — see below.
 
-That was the state of this repository until this fix, and it broke the build:
-`src/robot/package.xml` declares `<depend>rosaria</depend>`, so while `src/rosaria`
-was empty a clean clone could not be built.
+That gitlink state broke the build: `src/robot/package.xml` declares
+`<depend>rosaria</depend>`, so while `src/rosaria` was empty a clean clone could not be
+built.
 
 ### `src/rosaria` — origin identified, fixed here
 
@@ -76,8 +76,8 @@ git submodule update --init -- src/rosaria
 `.gitmodules` mapping, the untargeted `git submodule update --init` aborted — git could
 not resolve a URL for it — and the same happened to a bare `git submodule status`. That
 is fixed: initialising by path still works, and the untargeted `git submodule update
---init` and `git submodule status` no longer complain, because every remaining gitlink
-is declared.
+--init` and `git submodule status` were both verified to succeed on a clean clone, now
+that every remaining gitlink is declared.
 
 ### `src/waypoints` — the original is LOST; what is there now is a declared reconstruction
 
