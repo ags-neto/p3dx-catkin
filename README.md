@@ -19,3 +19,23 @@ vendored under `src/` keep their own licences:
 
 MIT is not possible here: the GPL-3.0 package `p3dx_description` and the LGPL-3.0
 `robot`/`estop` impose their own obligations on the combined work.
+
+## OpenNI2 and the Orbbec driver are not bundled
+
+`ros_astra_camera` needs the OpenNI2 runtime and the Orbbec driver
+(`OpenNI2/Drivers/liborbbec.so` and friends). Those used to be vendored here as
+prebuilt binaries under `src/ros_astra_camera/include/openni2_redist/`; they are
+no longer part of this repository. They are factory/third-party artefacts and
+this repository has no checked terms to redistribute them, so it does not.
+
+Install them instead: the OpenNI2 runtime from the official OpenNI distribution
+(build it from the official source tree, or use the distribution package that
+provides OpenNI2 for your architecture), and the Orbbec driver from the
+manufacturer's Astra SDK, or from the distribution package that ships it.
+
+Once OpenNI2 is available system-wide the package builds as before, because the
+OpenNI2 headers remain in the repository under
+`src/ros_astra_camera/include/openni2/`. Anyone who prefers to keep the files
+next to the source can drop them back into
+`src/ros_astra_camera/include/openni2_redist/<arch>/`; that directory is now
+ignored by git so it will not be committed again.

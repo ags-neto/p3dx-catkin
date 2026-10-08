@@ -3,3 +3,4 @@
 /.vscode
 /build
 /devel
+src/ros_astra_camera/include/openni2_redist/
