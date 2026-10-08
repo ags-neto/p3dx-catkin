@@ -139,3 +139,12 @@ Licensed under the Apache License, Version 2.0 (the "License"); you may not use 
 Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 
 *Other names and brands may be claimed as the property of others*
+
+### Known limitation after removing the bundled binaries
+
+The package's `CMakeLists.txt` still references `include/openni2_redist/<arch>` in a few places
+(the `install` rules among them). Linking against a **system** OpenNI2 works, but `make install`
+for this package will look for files that are no longer in the repository. Whoever needs that
+install step should either point those rules at the system OpenNI2 or drop them. This was not
+changed here on purpose: there is no ROS toolchain in this environment, so the change could not
+be tested.
